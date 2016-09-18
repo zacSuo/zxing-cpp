@@ -38,10 +38,22 @@
 #include <zxing/multi/MultipleBarcodeReader.h>
 #include <zxing/multi/GenericMultipleBarcodeReader.h>
 
+#include <core/core.hpp>
+#include <highgui/highgui.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/video/video.hpp>
+#include <opencv2/objdetect/objdetect.hpp>
+#include <opencv.hpp>
+#include <cv.h>
+
+#include "opencvbitmapsource.h"
+
 using namespace std;
 using namespace zxing;
 using namespace zxing::multi;
 using namespace zxing::qrcode;
+using namespace cv;
+
 
 namespace {
 
@@ -100,6 +112,7 @@ int read_image(Ref<LuminanceSource> source, bool hybrid, string expected) {
     cell_result = "std::exception: " + string(e.what());
     res = -5;
   }
+
 
   if (test_mode && results.size() == 1) {
     std::string result = results[0]->getText()->getText();
@@ -179,119 +192,52 @@ string read_expected(string imagefilename) {
   return expected;
 }
 
+
 int main(int argc, char** argv) {
-  if (argc <= 1) {
-    cout << "Usage: " << argv[0] << " [OPTION]... <IMAGE>..." << endl
-         << "Read barcodes from each IMAGE file." << endl
-         << endl
-         << "Options:" << endl
-         << "  (-h|--hybrid)             use the hybrid binarizer (default)" << endl
-         << "  (-g|--global)             use the global binarizer" << endl
-         << "  (-v|--verbose)            chattier results printing" << endl
-         << "  --more                    display more information about the barcode" << endl
-         << "  --test-mode               compare IMAGEs against text files" << endl
-         << "  --try-harder              spend more time to try to find a barcode" << endl
-         << "  --search-multi            search for more than one bar code" << endl
-         << endl
-         << "Example usage:" << endl
-         << "  zxing --test-mode *.jpg" << endl
-         << endl;
-    return 1;
-  }
+    Mat sourceFrame, grayFrame;
+    VideoCapture capture(0);
+    if (!capture.isOpened()) return 0;
+    bool stopFlag(false );
+    while (!stopFlag)
+    {
+        if (!capture.read(sourceFrame))
+        {
+            capture.open(0);
+            cout<<endl<<capture.isOpened()<< "Camera Read Fail;" <<endl;
+            if (!capture.isOpened() || !capture.read(sourceFrame)) break;
+        }
+		//图像灰度处理
+		cvtColor(sourceFrame, grayFrame, CV_BGR2GRAY);
+		Ref<OpenCVBitmapSource> source(new OpenCVBitmapSource(grayFrame));
+		Ref<Binarizer> binarizer(new GlobalHistogramBinarizer(source));
+		Ref<BinaryBitmap> bitmap(new BinaryBitmap(binarizer));
+		MultiFormatReader reader;
+		Ref<Result> result;
+		string strResult;
+		try
+		{
+			result = reader.decode(bitmap, DecodeHints(DecodeHints::TRYHARDER_HINT));
+			strResult = result->getText()->getText();
+			cout<<"===================================" << strResult <<endl;
+		}
+		catch(const std::exception& e)
+		{
+			std::cerr<<e.what()<<std::endl;
+		}
+		//if(strResult.size() != 0){
+		//	CvFont font;
+		//	cvInitFont(&font,CV_FONT_HERSHEY_SIMPLEX ,1.1,1.0,0,2);
+		//	//strResult = CodeFormatConvert::convertUTF8ToGB2312(strResult.data());
+		//	putText(sourceFrame,strResult,Point(20,20),font);
+		//}
+		
+		imshow("Image", sourceFrame);
 
-  int total = 0;
-  int gonly = 0;
-  int honly = 0;
-  int both = 0;
-  int neither = 0;
-
-  for (int i = 1; i < argc; i++) {
-    string filename = argv[i];
-    if (filename.compare("--verbose") == 0 ||
-        filename.compare("-v") == 0) {
-      verbose = true;
-      continue;
+		if (waitKey(10) == 27)
+		{//监听到ESC退出
+			stopFlag = true;
+		}
     }
-    if (filename.compare("--hybrid") == 0 ||
-        filename.compare("-h") == 0) {
-      use_hybrid = true;
-      continue;
-    }
-    if (filename.compare("--global") == 0 ||
-        filename.compare("-g") == 0) {
-      use_global = true;
-      continue;
-    }
-    if (filename.compare("--more") == 0) {
-      more = true;
-      continue;
-    }
-    if (filename.compare("--test-mode") == 0) {
-      test_mode = true;
-      continue;
-    }
-    if (filename.compare("--try-harder") == 0) {
-      try_harder = true;
-      continue;
-    }
-    if (filename.compare("--search-multi") == 0){
-      search_multi = true;
-      continue;
-    }
-
-    if (filename.length() > 3 &&
-        (filename.substr(filename.length() - 3, 3).compare("txt") == 0 ||
-         filename.substr(filename.length() - 3, 3).compare("bin") == 0)) {
-      continue;
-    }
-
-    if (!use_global && !use_hybrid) {
-      use_global = use_hybrid = true;
-    }
-
-    if (test_mode) {
-      cerr << "Testing: " << filename << endl;
-    }
-
-    Ref<LuminanceSource> source;
-    try {
-      source = ImageReaderSource::create(filename);
-    } catch (const zxing::IllegalArgumentException &e) {
-      cerr << e.what() << " (ignoring)" << endl;
-      continue;
-    }
-
-    string expected = read_expected(filename);
-
-    int gresult = 1;
-    int hresult = 1;
-    if (use_hybrid) {
-      hresult = read_image(source, true, expected);
-    }
-    if (use_global && (verbose || hresult != 0)) {
-      gresult = read_image(source, false, expected);
-      if (!verbose && gresult != 0) {
-        cout << "decoding failed" << endl;
-      }
-    }
-    gresult = gresult == 0;
-    hresult = hresult == 0;
-    gonly += gresult && !hresult;
-    honly += hresult && !gresult;
-    both += gresult && hresult;
-    neither += !gresult && !hresult;
-    total = total + 1;
-  }
-
-  if (test_mode) {
-    cout << endl
-         << "Summary:" << endl
-         << " " << total << " images tested total," << endl
-         << " " << (honly + both)  << " passed hybrid, " << (gonly + both)
-         << " passed global, " << both << " pass both, " << endl
-         << " " << honly << " passed only hybrid, " << gonly
-         << " passed only global, " << neither << " pass neither." << endl;
-  }
 
   return 0;
 }

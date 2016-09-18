@@ -23,6 +23,7 @@
 #include "lodepng.h"
 #include "jpgd.h"
 
+
 using std::string;
 using std::ostringstream;
 using zxing::Ref;
