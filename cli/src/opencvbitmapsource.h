@@ -1,5 +1,5 @@
-#include <zxing\LuminanceSource.h>
-#include <opencv2\opencv.hpp>
+#include <zxing/LuminanceSource.h>
+#include <opencv2/opencv.hpp>
 
 using namespace zxing;
 

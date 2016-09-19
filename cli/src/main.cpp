@@ -198,6 +198,7 @@ int main(int argc, char** argv) {
     VideoCapture capture(0);
     if (!capture.isOpened()) return 0;
     bool stopFlag(false );
+	int idx=0;
     while (!stopFlag)
     {
         if (!capture.read(sourceFrame))
@@ -218,20 +219,16 @@ int main(int argc, char** argv) {
 		{
 			result = reader.decode(bitmap, DecodeHints(DecodeHints::TRYHARDER_HINT));
 			strResult = result->getText()->getText();
-			cout<<"===================================" << strResult <<endl;
+			cout<<++idx <<" ==> "<< strResult <<endl;
 		}
 		catch(const std::exception& e)
 		{
 			std::cerr<<e.what()<<std::endl;
+			idx=0;
 		}
-		//if(strResult.size() != 0){
-		//	CvFont font;
-		//	cvInitFont(&font,CV_FONT_HERSHEY_SIMPLEX ,1.1,1.0,0,2);
-		//	//strResult = CodeFormatConvert::convertUTF8ToGB2312(strResult.data());
-		//	putText(sourceFrame,strResult,Point(20,20),font);
-		//}
 		
 		imshow("Image", sourceFrame);
+		moveWindow("Image",500,0);
 
 		if (waitKey(10) == 27)
 		{//¼àÌýµ½ESCÍË³ö
