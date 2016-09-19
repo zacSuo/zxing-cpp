@@ -198,7 +198,7 @@ int main(int argc, char** argv) {
     VideoCapture capture(0);
     if (!capture.isOpened()) return 0;
 	DecodeHints hints(DecodeHints::DEFAULT_HINT);
-    hints.setTryHarder(false);
+    hints.setTryHarder(false);//默认为true，若使用默认则对于未检测到二维码的情况会慢很多
 	MultiFormatReader reader;
 	Ref<Result> result;
 	string strResult;
@@ -216,7 +216,7 @@ int main(int argc, char** argv) {
 		cvtColor(sourceFrame, grayFrame, CV_BGR2GRAY);
 		//Mat -> Bitmap
 		Ref<OpenCVBitmapSource> source(new OpenCVBitmapSource(grayFrame));
-		Ref<Binarizer> binarizer(new HybridBinarizer(source));
+		Ref<Binarizer> binarizer(new HybridBinarizer(source));//GlobalHistogramBinarizer也可以，不过测试来看当前的识别率高
 		Ref<BinaryBitmap> bitmap(new BinaryBitmap(binarizer));
 		tmpRecordFalg = recordFlag;
 		recordFlag = false;
