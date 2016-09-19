@@ -197,36 +197,45 @@ int main(int argc, char** argv) {
     Mat sourceFrame, grayFrame;
     VideoCapture capture(0);
     if (!capture.isOpened()) return 0;
-    bool stopFlag(false );
+	DecodeHints hints(DecodeHints::DEFAULT_HINT);
+    hints.setTryHarder(false);
+	MultiFormatReader reader;
+	Ref<Result> result;
+	string strResult;
+    bool stopFlag(false), recordFlag(false), tmpRecordFalg(true);
 	int idx=0;
-    while (!stopFlag)
-    {
-        if (!capture.read(sourceFrame))
-        {
-            capture.open(0);
-            cout<<endl<<capture.isOpened()<< "Camera Read Fail;" <<endl;
-            if (!capture.isOpened() || !capture.read(sourceFrame)) break;
-        }
+	while (!stopFlag)
+	{
+		if (!capture.read(sourceFrame))
+		{
+			capture.open(0);
+			cout<<endl<<capture.isOpened()<< "Camera Read Fail;" <<endl;
+			if (!capture.isOpened() || !capture.read(sourceFrame)) break;
+		}
 		//图像灰度处理
 		cvtColor(sourceFrame, grayFrame, CV_BGR2GRAY);
+		//Mat -> Bitmap
 		Ref<OpenCVBitmapSource> source(new OpenCVBitmapSource(grayFrame));
-		Ref<Binarizer> binarizer(new GlobalHistogramBinarizer(source));
+		Ref<Binarizer> binarizer(new HybridBinarizer(source));
 		Ref<BinaryBitmap> bitmap(new BinaryBitmap(binarizer));
-		MultiFormatReader reader;
-		Ref<Result> result;
-		string strResult;
+		tmpRecordFalg = recordFlag;
+		recordFlag = false;
 		try
-		{
-			result = reader.decode(bitmap, DecodeHints(DecodeHints::TRYHARDER_HINT));
+		{//解码
+			result = reader.decode(bitmap, hints);
 			strResult = result->getText()->getText();
-			cout<<++idx <<" ==> "<< strResult <<endl;
+			recordFlag = true;			
+		}catch (const ReaderException& e) {
+			strResult = "zxing::ReaderException: " + string(e.what());
+		} catch (const zxing::IllegalArgumentException& e) {
+			strResult = "zxing::IllegalArgumentException: " + string(e.what());
+		} catch (const zxing::Exception& e) {
+			strResult = "zxing::Exception: " + string(e.what());
+		} catch (const std::exception& e) {
+			strResult = "std::exception: " + string(e.what());
 		}
-		catch(const std::exception& e)
-		{
-			std::cerr<<e.what()<<std::endl;
-			idx=0;
-		}
-		
+		if(tmpRecordFalg != recordFlag)  idx = 0;
+		cout<< ++idx <<" ==> "<< strResult <<endl;
 		imshow("Image", sourceFrame);
 		moveWindow("Image",500,0);
 
@@ -234,7 +243,7 @@ int main(int argc, char** argv) {
 		{//监听到ESC退出
 			stopFlag = true;
 		}
-    }
+	}
 
-  return 0;
+	return 0;
 }
